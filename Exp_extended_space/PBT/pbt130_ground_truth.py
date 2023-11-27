@@ -263,6 +263,7 @@ def editdistance(s1, s2):
 
 
 all_pipelines = []
+initial_pipelines = []
 
 # Begin PBT code
 population_size = 100
@@ -379,22 +380,34 @@ best_pipeline_info = max(population, key=lambda x: x[1])
 best_pipeline = best_pipeline_info[0]
 best_f1_score = best_pipeline_info[1]
 
-# Open the CSV file for writing
-with open('initial_pipelines.csv', 'w', newline='') as file:
-    csv_writer = csv.writer(file)
-    csv_writer.writerow(['Pipeline', 'F1 Score', 'Edit Distance with Best', 'Best Pipeline', 'Best F1 Score'])
+# # Open the CSV file for writing
+# with open('initial_pipelines.csv', 'w', newline='') as file:
+#     csv_writer = csv.writer(file)
+#     csv_writer.writerow(['Pipeline', 'F1 Score', 'Edit Distance with Best', 'Best Pipeline', 'Best F1 Score'])
 
-    # Write each pipeline, its F1 score, edit distance, best pipeline, and best F1 score
-    for pipe, score in population:
-        pipeline_str = ','.join(pipe)
-        distance = editdistance(pipeline_str.split(','), best_pipeline)
-        best_pipeline_str = ','.join(best_pipeline)  # Convert best pipeline list to string
-        csv_writer.writerow([pipeline_str, score, distance, best_pipeline_str, best_f1_score])
+#     # Write each pipeline, its F1 score, edit distance, best pipeline, and best F1 score
+#     for pipe, score in population:
+#         pipeline_str = ','.join(pipe)
+#         distance = editdistance(pipeline_str.split(','), best_pipeline)
+#         best_pipeline_str = ','.join(best_pipeline)  # Convert best pipeline list to string
+#         csv_writer.writerow([pipeline_str, score, distance, best_pipeline_str, best_f1_score])
 
+
+# for pipe, score in population:
+#     all_pipelines.append((pipe, score))
 
 for pipe, score in population:
-    all_pipelines.append((pipe, score))
+    initial_pipelines.append((pipe, score))  # Append each evaluated pipeline to initial_pipelines
+    all_pipelines.append((pipe, score))      # Also append to all_pipelines
 
+
+# Record initial pipelines in initial_pipelines.csv
+with open('initial_pipelines.csv', 'w', newline='') as file:
+    csv_writer = csv.writer(file)
+    csv_writer.writerow(['Pipeline', 'F1 Score', 'Edit Distance with Best'])
+    for pipe, score in initial_pipelines:
+        pipeline_str = ','.join(pipe)
+        csv_writer.writerow([pipeline_str, score, ''])  # Leave 'Edit Distance with Best' empty for now
 
 
 #second part
@@ -521,7 +534,7 @@ best_pipeline_info = max(all_pipelines, key=lambda x: x[1])
 best_pipeline = best_pipeline_info[0]
 best_f1_score = best_pipeline_info[1]
 
-
+best_pipeline_str = ','.join(best_pipeline)
 
 with open('pbt_pipelines.csv', 'w', newline='') as file:
     pbt_csv_writer = csv.writer(file)
@@ -531,3 +544,18 @@ with open('pbt_pipelines.csv', 'w', newline='') as file:
         distance = editdistance(pipeline_str.split(','), best_pipeline)
         best_pipeline_str = ','.join(best_pipeline)
         pbt_csv_writer.writerow([pipeline_str, score, distance, best_pipeline_str, best_f1_score])
+
+
+
+
+with open('initial_pipelines.csv', 'w', newline='') as file:
+    csv_writer = csv.writer(file)
+    # Write the headers
+    csv_writer.writerow(['Pipeline', 'F1 Score', 'Edit Distance with Best', 'Best Pipeline', 'Best F1 Score'])
+    
+    # Iterate over each pipeline and write its details
+    for pipe, score in initial_pipelines:
+        pipeline_str = ','.join(pipe)
+        distance = editdistance(pipeline_str.split(','), best_pipeline)
+        # Write the complete row
+        csv_writer.writerow([pipeline_str, score, distance, best_pipeline_str, best_f1_score])
