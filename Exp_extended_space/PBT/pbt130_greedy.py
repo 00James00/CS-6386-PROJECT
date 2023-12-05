@@ -43,7 +43,6 @@ from sklearn.metrics import f1_score
 import sys
 
 
-
 def generate_dic_and_names():
     temp_preprocessors_dic = {#"isolation_forest": IsolationForest(random_state=0),
                      #"lof": LocalOutlierFactor(),
@@ -112,8 +111,6 @@ resample_seeds = np.random.choice(all_list, 2000000, replace=False)
 mutate_way_seeds = np.random.choice(all_list, 2000000, replace=False)
 op_seeds = np.random.choice(all_list, 2000000, replace=False)
 pos_seeds = np.random.choice(all_list, 2000000, replace=False)
-
-
 
 def load_data():
     train_data_dir = "/Users/cba/Desktop/cs_6386/research/Auto-FP-for-james/auto_fp/Exp_extended_space/PBT/" + dataset + "_train.csv"
@@ -262,7 +259,6 @@ def editdistance(s1, s2):
     return previous_row[-1]
 
 
-
 all_pipelines = []
 initial_pipelines = []
 
@@ -343,8 +339,7 @@ with open('initial_pipelines.csv', 'w', newline='') as file:
         except:
            
             score = 0
-            
-       
+
         global_mid = time.time()
         if (global_mid - global_start) >= max_time_limit:
             time_limit_reached = True
@@ -372,30 +367,11 @@ with open('initial_pipelines.csv', 'w', newline='') as file:
         if (score != 0 and time_limit_reached) or time_limit_reached:
             break
       
-      
-
-
-
+    
 # Find the best pipeline and its F1 score
 best_pipeline_info = max(population, key=lambda x: x[1])
 best_pipeline = best_pipeline_info[0]
 best_f1_score = best_pipeline_info[1]
-
-# # Open the CSV file for writing
-# with open('initial_pipelines.csv', 'w', newline='') as file:
-#     csv_writer = csv.writer(file)
-#     csv_writer.writerow(['Pipeline', 'F1 Score', 'Edit Distance with Best', 'Best Pipeline', 'Best F1 Score'])
-
-#     # Write each pipeline, its F1 score, edit distance, best pipeline, and best F1 score
-#     for pipe, score in population:
-#         pipeline_str = ','.join(pipe)
-#         distance = editdistance(pipeline_str.split(','), best_pipeline)
-#         best_pipeline_str = ','.join(best_pipeline)  # Convert best pipeline list to string
-#         csv_writer.writerow([pipeline_str, score, distance, best_pipeline_str, best_f1_score])
-
-
-# for pipe, score in population:
-#     all_pipelines.append((pipe, score))
 
 for pipe, score in population:
     initial_pipelines.append((pipe, score))  # Append each evaluated pipeline to initial_pipelines
@@ -410,125 +386,66 @@ with open('initial_pipelines.csv', 'w', newline='') as file:
         pipeline_str = ','.join(pipe)
         csv_writer.writerow([pipeline_str, score, ''])  # Leave 'Edit Distance with Best' empty for now
 
-
 #second part
-
-
-
-# Using PBT framework to do pipeline searching
+# Using Greedy to do pipeline searching
 current_epoch = 0
 count = -1
 time_limit_reached = False
 
-with open('pbt_pipelines.csv', 'w', newline='') as pbt_file:
-    pbt_csv_writer = csv.writer(pbt_file)
-    pbt_csv_writer.writerow(['Pipeline', 'F1 Score', 'Edit Distance with Best'])
+with open('greedy_pipelines.csv', 'w', newline='') as greedy_file:
+    greedy_csv_writer = csv.writer(greedy_file)
+    greedy_csv_writer.writerow(['Pipeline', 'F1 Score'])
+
+    best_pipeline = []
+    best_pipeline_score = 0
+
     while current_epoch < epochs and not time_limit_reached:
         current_epoch += 1
-        temp_population = []
-        #sort population based on accuracy score
-        population.sort(key=lambda x : x[1], reverse=True)
-        cutoff = int(np.ceil(fraction * len(population)))
-        tops = population[:cutoff]
-        bottoms = population[len(population) - cutoff:]
-        for bottom in bottoms:
-            score = 0
-            exploit_and_explore_pipe = []
-            while score == 0:
-                count += 1
-                pick_start = time.time()
-                np.random.seed(top_choice_seeds[count])
-                top_idx = [idx for idx in range(len(tops))]
-                top = tops[np.random.choice(top_idx)]
-                exploit_and_explore_pipe = exploit_and_explore(population, bottom, top, resample_probability,
-                                                            resample_seed=resample_seeds[count],
-                                                            mutate_way_seed=mutate_way_seeds[count],
-                                                            op_seed=op_seeds[count],
-                                                            pos_seed=pos_seeds[count])
-                pick_end = time.time()
-                pick_time = pick_end - pick_start
+        temp_best_score = 0
+        temp_best_preprocessor = None
+        temp_best_pipeline = []
 
-                # begin evaluation
-                generate_pipe_start = time.time()
-                pipe_str = ""
-                if (len(exploit_and_explore_pipe) == 1):
-                    real_pipe = preprocessors_dic[exploit_and_explore_pipe[0]]
-                    pipe_str = exploit_and_explore_pipe[0]
-                else:
-                    real_pipe = make_pipeline(preprocessors_dic[exploit_and_explore_pipe[0]],
-                                            preprocessors_dic[exploit_and_explore_pipe[1]])
-                    pipe_str = exploit_and_explore_pipe[0] + "," + exploit_and_explore_pipe[1]
-                    for i in range(2, len(exploit_and_explore_pipe)):
-                        real_pipe = make_pipeline(real_pipe,
-                                                preprocessors_dic[exploit_and_explore_pipe[i]])
-                        pipe_str += "," + exploit_and_explore_pipe[i]
-                generate_pipe_end = time.time()
-                #print("Generate pipe time: " + str(generate_pipe_end - generate_pipe_start))
+        # Iterating over all preprocessors
+        for preprocessor_name in operator_names:
+            temp_pipeline = best_pipeline + [preprocessor_name]
+            pipe_str = ",".join(temp_pipeline)
 
+            # Create pipeline
+            real_pipe = make_pipeline(*[preprocessors_dic[name] for name in temp_pipeline])
+
+            # Evaluate pipeline
+            try:
+                X_train_new = real_pipe.fit_transform(X_train)
+                X_valid_new = real_pipe.transform(X_valid)
                 model = get_model()
-                prep_train_start, prep_train_end = 0, 0
-                prep_valid_start, prep_valid_end = 0, 0
-                train_start, train_end = 0, 0
-                pred_start, pred_end = 0, 0
-                eval_score_start, eval_score_end = 0, 0
+                model.fit(np.array(X_train_new), np.array(y_train))
+                y_pred = model.predict(np.array(X_valid_new))
+                score = f1_score(y_valid, y_pred, average='macro')
 
-                try:
-                    prep_train_start = time.time()
-                    X_train_new = real_pipe.fit_transform(X_train)
-                    prep_train_end = time.time()
-                
+                # Check if current pipeline is better
+                if score > temp_best_score:
+                    temp_best_score = score
+                    temp_best_preprocessor = preprocessor_name
+                    temp_best_pipeline = temp_pipeline
 
-                    prep_valid_start = time.time()
-                    X_valid_new = real_pipe.transform(X_valid)
-                    prep_valid_end = time.time()
-        
+            except Exception as e:
+                # Handle exceptions, potentially log them
+                print("Error occurred:", e)
+                continue
 
-                    train_start = time.time()
-                    model.fit(np.array(X_train_new), np.array(y_train))
-                    train_end = time.time()
+        # Check if any improvement was made in this epoch
+        if temp_best_preprocessor is not None:
+            best_pipeline = temp_best_pipeline
+            best_pipeline_score = temp_best_score
+            greedy_csv_writer.writerow([pipe_str, best_pipeline_score])
 
-                    pred_start = time.time()
-                    y_pred = model.predict(np.array(X_valid_new))
-                    pred_end = time.time()
+        # Check for time limit
+        if (time.time() - global_start) >= max_time_limit:
+            break
 
-                    eval_score_start = time.time()
-                    score = accuracy_score(y_valid, y_pred)
-                    eval_score_end = time.time()
-
-
-                except:
-                    score = 0
-                    
-                global_mid = time.time()
-                if (global_mid - global_start) >= max_time_limit:
-                    time_limit_reached = True
-                f = open('results/pbt_pick_time_1.csv', 'a')
-                f.write(str(pick_time) + "\n")
-                f = open('results/pbt_wallock_1.csv', 'a')
-                f.write(str(global_mid - global_start) + "\n")
-                f = open('results/pbt_pipe_1.csv', 'a')
-                f.write(pipe_str + "\n")
-                f = open('results/pbt_score_1.csv', 'a')
-                f.write(str(score) + "\n")
-                f = open('results/pbt_eval_time_1.csv', 'a')
-                f.write(str(generate_pipe_end - generate_pipe_start) + "," +
-                        str(prep_train_end - prep_train_start) + "," +
-                        str(prep_valid_end - prep_valid_start) + "," +
-                        str(train_end - train_start) + "," +
-                        str(pred_end - pred_start) + "," +
-                        str(eval_score_end - eval_score_start) + "\n")
-                if (time.time() - global_start) >= max_time_limit:
-                    time_limit_reached = True
-                    break  # Break out of the inner loop
-
-                if score != 0:
-                    
-                    all_pipelines.append((exploit_and_explore_pipe, score))
-                    population[population.index(bottom)] = (exploit_and_explore_pipe, score)
-                if time_limit_reached:
-                  break  # Break out of the outer loop if time limit is reached
-
-
+# After all epochs or time limit reached
+print("Best pipeline:", best_pipeline)
+print("Best F1 Score:", best_pipeline_score)
 
 
 best_pipeline_info = max(all_pipelines, key=lambda x: x[1])
@@ -545,9 +462,6 @@ with open('pbt_pipelines.csv', 'w', newline='') as file:
         distance = editdistance(pipeline_str.split(','), best_pipeline)
         best_pipeline_str = ','.join(best_pipeline)
         pbt_csv_writer.writerow([pipeline_str, score, distance, best_pipeline_str, best_f1_score])
-
-
-
 
 with open('initial_pipelines.csv', 'w', newline='') as file:
     csv_writer = csv.writer(file)
